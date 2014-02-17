@@ -21,7 +21,7 @@ Support
 Import
 ======
 
-	import "github.com/achun/tom-toml"
+	import "github.com/typepress/log"
 
 Usage
 =====
