@@ -269,7 +269,7 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 	return
 }
 
-func (l *logger) ReadFrom(src Reader) (n int64, err error) {
+func (l *logger) ReadFrom(src io.Reader) (n int64, err error) {
 	l.mu.Lock()
 	defer func() {
 		l.mu.Unlock()
