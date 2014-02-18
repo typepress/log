@@ -40,6 +40,7 @@ type Loggers interface {
 
 	// Join logger to Loggers.
 	Join(...Logger)
+	Close()
 }
 
 type multi struct {
@@ -60,6 +61,16 @@ var _ Loggers = &multi{}
 // Inspired by https://github.com/uniqush/log.
 func Multi(loggers ...Logger) Loggers {
 	return &multi{sync.RWMutex{}, loggers}
+}
+
+func (self *multi) Close() {
+	self.mu.RLock()
+	defer self.mu.RUnlock()
+	for _, l := range self.loggers {
+		if l != nil {
+			l.Close()
+		}
+	}
 }
 
 func (self *multi) Join(logger ...Logger) {

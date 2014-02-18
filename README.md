@@ -13,8 +13,8 @@ Support
  - 并发安全
  - 日志级别
  - 多种输出规则
- - io.Writer 接口
- - io.ReaderFrom 接口
+ - io.WriteCloser 接口
+ - 支持日志分割 RotateWrite 接口
  - 友好输出格式易于分析
  - Loggers, Multi-Logger 设计思路来自 https://github.com/uniqush/log.
 

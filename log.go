@@ -96,10 +96,10 @@ func init() {
   mode flags 常量.
   MODE_EQUAL 表示 API 调用级别和 Logger 级别一致才输出日志.
   MODE_NONE_NAME 不输出级别对应的缩写前缀.
+  MODE_NONE_EOR  禁止写 EOR, 默认通过 Output 的输出最后都写 []byte{}, 表示 End Of Recorde.
   MODE_DONT_EXIT 调用 Fatal/Fatalf 时不执行 os.Exit(1).
   MODE_DONT_PANIC 调用 Panic/Panicf 时不抛出 panic.
   MODE_RECOVER 输出日志时使用 recover() 捕获并忽略 panic.
-  MODE_WITH_EOR EOR 表示 end of recorde, 所有通过 Output 输出日志最后发送 []byte{}.
 */
 
 // +dl
@@ -107,21 +107,21 @@ func init() {
 // flags constants for logger mode.
 const (
 	MODE_EQUAL      = -iota - 100 // equal level mode
+	MODE_RECOVER                  // recover panic and ignore
 	MODE_NONE_NAME                // dont output builtin level name
+	MODE_NONE_EOR                 // send []byte{} on Output.
 	MODE_DONT_EXIT                // dont exec os.Exit when Fatal
 	MODE_DONT_PANIC               // dont exec panic when Panic
-	MODE_RECOVER                  // recover panic and ignore
-	MODE_WITH_EOR                 // send []byte{} on Output.
 	nr_modes
 )
 
 const (
 	_equal = 1 << iota
+	_recover
 	_none_name
+	_none_eor
 	_dont_exit
 	_dont_panic
-	_recover
-	_with_eor
 )
 
 // level logger interface.
@@ -176,8 +176,8 @@ type BaseLogger interface {
 
 type Logger interface {
 	BaseLogger
-	io.ReaderFrom
 	Write([]byte) (int, error)
+	Close()
 }
 
 var _ Logger = &logger{}
@@ -320,13 +320,13 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 		l.buf = append(l.buf, '\n')
 	}
 	_, err = l.out.Write(l.buf)
-	if err == nil {
+	if err == nil && 0 == _none_eor&l.modes {
 		_, err = l.out.Write(endOfRecord)
 	}
 	return
 }
 
-func (l *logger) ReadFrom(src io.Reader) (n int64, err error) {
+func (l *logger) Close() {
 	l.mu.Lock()
 	defer func() {
 		l.mu.Unlock()
@@ -334,7 +334,10 @@ func (l *logger) ReadFrom(src io.Reader) (n int64, err error) {
 			_ = recover() // ignore panic
 		}
 	}()
-	return io.Copy(l.out, src)
+	c, ok := l.out.(io.Closer)
+	if ok {
+		c.Close()
+	}
 }
 
 func (l *logger) Write(p []byte) (n int, err error) {
@@ -436,9 +439,10 @@ func (l *logger) Fatalf(format string, v ...interface{}) {
 // +dl zh-cn
 /*
   New 返回 Logger 对象.
-  writer 为 nil 返回 nil.
+  writer 为 nil 返回 nil. 如果 writer 符合 RotateWrite 接口, 启用缺省分割日志支持.
   prefix 为自定义前缀, 自定义前缀总会被输出.
   flags 有效范围包括所有的 flags 常量, 0 特指取消自动生成的前缀.
+  缺省分割日志条件: 达到任意一个 256M, 1000000 记录, 7days.
 */
 // +dl
 
@@ -479,6 +483,11 @@ func New(writer io.Writer, prefix string, flags ...int) Logger {
 	}
 
 	ret.prefix = prefix
-	ret.out = writer
+	rw, ok := writer.(RotateWrite)
+	if ok {
+		ret.out = Rotate(rw, 1<<28 /*256M*/, 1000000, 60*24*7 /*7days*/)
+	} else {
+		ret.out = writer
+	}
 	return ret
 }
