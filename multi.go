@@ -30,9 +30,16 @@ import (
 	"sync"
 )
 
+// Loggers interface for set of Logger.
 type Loggers interface {
-	BaseLogger
-	Add(...Logger)
+	LevelLogger
+
+	// +dl zh-cn
+	// Join 增加 Logger 到 Loggers 集合.
+	// +dl
+
+	// Join logger to Loggers.
+	Join(...Logger)
 }
 
 type multi struct {
@@ -42,16 +49,25 @@ type multi struct {
 
 var _ Loggers = &multi{}
 
+// +dl zh-cn
+/*
+  Multi 把多个 Logger 合并为一个 Multi-Logger 集合 Loggers.
+  调用 Loggers 的方法, Loggers 会对应遍历调用集合中的 LevelLogger 方法.
+*/
+// +dl
+
+// Multi returns Loggers.
 // Inspired by https://github.com/uniqush/log.
 func Multi(loggers ...Logger) Loggers {
 	return &multi{sync.RWMutex{}, loggers}
 }
 
-func (self *multi) Add(logger ...Logger) {
+func (self *multi) Join(logger ...Logger) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	self.loggers = append(self.loggers, logger...)
 }
+
 func (self *multi) output(s string, level int) {
 	self.mu.RLock()
 	defer self.mu.RUnlock()

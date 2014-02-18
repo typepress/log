@@ -24,6 +24,13 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+// +dl zh-cn
+/*
+  为 golang 提供日志输出. 部分代码 fork 自 go log.
+*/
+// +dl
+
+// logger for golang.
 // few code fork go log.
 package log
 
@@ -37,58 +44,88 @@ import (
 	"time"
 )
 
+// +dl zh-cn
+// 自动前缀 flags 常量, 生成相应的前缀. 缺省值 LstdFlags.
+// +dl
+
+// auto flags constants for prefix.
+// see also http://godoc.org/log#pkg-constants
 const (
 	Ldate = 1 << iota
 	Ltime
 	Lmicroseconds
 	Llongfile
 	Lshortfile
-	LstdFlags = Ldate | Ltime
+	LstdFlags = Ldate | Ltime // default
 )
 
-// dont change order
+// +dl zh-cn
+// 级别 flags 常量. 每一个级别都对应一个级别缩写前缀.
+// +dl
+
+// flags constants for logger level.
 const (
-	LZero = -iota
-	LFatal
-	LPanic // recover panic
-	LAlert
-	LError
-	LReport
-	LNotify
-	LInfo
-	LDebug
+	LZero   = -iota // [Z], use only for Logger.Output.
+	LFatal          // [F]
+	LPanic          // [P]
+	LAlert          // [A]
+	LError          // [E]
+	LReport         // [R]
+	LNotify         // [N]
+	LInfo           // [I], default
+	LDebug          // [D]
 	nr_levels
 )
 
-var levelsName [-nr_levels - 1]string
+var levelsName [-nr_levels]string
 
 func init() {
-	levelsName[-LFatal-1] = "[F]"
-	levelsName[-LPanic-1] = "[P]"
-	levelsName[-LAlert-1] = "[A]"
-	levelsName[-LError-1] = "[E]"
-	levelsName[-LReport-1] = "[R]"
-	levelsName[-LNotify-1] = "[N]"
-	levelsName[-LInfo-1] = "[I]"
-	levelsName[-LDebug-1] = "[D]"
+	levelsName[-LZero] = "[Z]"
+	levelsName[-LFatal] = "[F]"
+	levelsName[-LPanic] = "[P]"
+	levelsName[-LAlert] = "[A]"
+	levelsName[-LError] = "[E]"
+	levelsName[-LReport] = "[R]"
+	levelsName[-LNotify] = "[N]"
+	levelsName[-LInfo] = "[I]"
+	levelsName[-LDebug] = "[D]"
 }
 
-// dont change order
+// +dl zh-cn
+/*
+  mode flags 常量.
+  MODE_EQUAL 表示 API 调用级别和 Logger 级别一致才输出日志.
+  MODE_NONE_NAME 不输出级别对应的缩写前缀.
+  MODE_DONT_EXIT 调用 Fatal/Fatalf 时不执行 os.Exit(1).
+  MODE_DONT_PANIC 调用 Panic/Panicf 时不抛出 panic.
+  MODE_RECOVER 输出日志时使用 recover() 捕获并忽略 panic.
+  MODE_WITH_EOR EOR 表示 end of recorde, 所有通过 Output 输出日志最后发送 []byte{}.
+*/
+
+// +dl
+
+// flags constants for logger mode.
 const (
-	MODE_EQUAL     = -iota - 100 // equal level mode
-	MODE_NONE_NAME               // dont write default level name
-	MODE_DONT_EXIT               // dont exec os.Exit when Fatal
-	MODE_DONT_PANIC
-	MODE_RECOVER
+	MODE_EQUAL      = -iota - 100 // equal level mode
+	MODE_NONE_NAME                // dont output builtin level name
+	MODE_DONT_EXIT                // dont exec os.Exit when Fatal
+	MODE_DONT_PANIC               // dont exec panic when Panic
+	MODE_RECOVER                  // recover panic and ignore
+	MODE_WITH_EOR                 // send []byte{} on Output.
+	nr_modes
 )
 
-type nullWriter struct{}
+const (
+	_equal = 1 << iota
+	_none_name
+	_dont_exit
+	_dont_panic
+	_recover
+	_with_eor
+)
 
-func (f *nullWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
-type BaseLogger interface {
+// level logger interface.
+type LevelLogger interface {
 	Fatal(v ...interface{})
 	Fatalf(format string, v ...interface{})
 	Panic(v ...interface{})
@@ -107,16 +144,45 @@ type BaseLogger interface {
 	Debugf(format string, v ...interface{})
 }
 
+// +dl zh-cn
+// 所有 BaseLogger 方法在最后保障发送换行符 "\n".
+// +dl
+
+// All methods of BaseLogger auto send "\n".
+type BaseLogger interface {
+	LevelLogger
+	Print(v ...interface{})
+	Printf(format string, v ...interface{})
+	// +dl zh-cn
+	/*
+		Output 输出日志符串 s.
+			参数 calldepth, optionLevel 作用于生成前缀,	其他 BaseLogger 接口方法均调用了 Output.
+
+		calldepth 用于生成 Llongfile 或 Lshortfile 字符串.
+
+		optionLevel 指示日志的级别, 级别和 MODE_EQUAL 共同决定是否输出日志:
+			- 省略, 等同于 LZero, 总是输出日志.
+			- MODE_EQUAL 下, 如果 optionLevel 等于建立 Logger 时的级别, 输出日志.
+			- 非 MODE_EQUAL, 如果 optionLevel 大于等于建立 Logger 时的级别, 输出日志.
+	*/
+	// +dl
+
+	/*
+		Output writes the output for a logging event.
+		if omit optionLevel, same to LZero, means always output.
+	*/
+	Output(calldepth int, s string, optionLevel ...int) error
+}
+
 type Logger interface {
 	BaseLogger
 	io.ReaderFrom
 	Write([]byte) (int, error)
-	Print(v ...interface{})
-	Printf(format string, v ...interface{})
-	Output(calldepth int, s string, optionLevel ...int) error
 }
 
 var _ Logger = &logger{}
+
+var endOfRecord []byte = []byte{}
 
 type logger struct {
 	mu     sync.Mutex // ensures atomic writes; protects the following fields
@@ -125,12 +191,8 @@ type logger struct {
 	out    io.Writer  // destination for output
 	buf    []byte     // for accumulating text to write
 
-	level     int
-	equal     bool
-	noneName  bool
-	dontExit  bool
-	dontPanic bool
-	recover   bool
+	level int
+	modes int
 }
 
 // Cheap integer to fixed-width decimal ASCII.  Give a negative width to avoid zero-padding.
@@ -161,7 +223,7 @@ func (l *logger) formatHeader(buf *[]byte, t time.Time, file string, line, level
 		}
 	}
 
-	if !l.noneName && level > nr_levels && level <= 0 {
+	if level > nr_levels && level <= 0 && 0 == _none_name&l.modes {
 		*buf = append(*buf, levelsName[-level]...)
 		*buf = append(*buf, ' ')
 	}
@@ -222,8 +284,8 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 	if len(optionLevel) != 0 {
 		level = optionLevel[0]
 	}
-	if level == LZero || l.equal && level == l.level || !l.equal && level > l.level {
-		level++
+	if level == LZero || 0 != _equal&l.modes && level == l.level || 0 == _equal&l.modes && level >= l.level {
+
 	} else {
 		return
 	}
@@ -244,7 +306,7 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 	l.mu.Lock()
 	defer func() {
 		l.mu.Unlock()
-		if l.recover {
+		if 0 != _recover&l.modes {
 			_ = recover() // ignore panic
 		}
 	}()
@@ -257,14 +319,9 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 	if len(s) > 0 && s[len(s)-1] != '\n' {
 		l.buf = append(l.buf, '\n')
 	}
-	n := 0
-	count := 0
-	for len(l.buf) != 0 && (err == nil || err == io.ErrShortWrite) && count < 10 {
-		n, err = l.out.Write(l.buf)
-		l.buf = l.buf[n:]
-		if err == io.ErrShortWrite {
-			count++
-		}
+	_, err = l.out.Write(l.buf)
+	if err == nil {
+		_, err = l.out.Write(endOfRecord)
 	}
 	return
 }
@@ -273,7 +330,7 @@ func (l *logger) ReadFrom(src io.Reader) (n int64, err error) {
 	l.mu.Lock()
 	defer func() {
 		l.mu.Unlock()
-		if l.recover {
+		if 0 != _recover&l.modes {
 			_ = recover() // ignore panic
 		}
 	}()
@@ -284,20 +341,11 @@ func (l *logger) Write(p []byte) (n int, err error) {
 	l.mu.Lock()
 	defer func() {
 		l.mu.Unlock()
-		if l.recover {
+		if 0 != _recover&l.modes {
 			_ = recover() // ignore panic
 		}
 	}()
-	wBytes := 0
-	count := 0
-	for len(p) != 0 && (err == nil || err == io.ErrShortWrite) && count < 10 {
-		wBytes, err = l.out.Write(p)
-		n += wBytes
-		p = p[n:]
-		if err == io.ErrShortWrite {
-			count++
-		}
-	}
+	n, err = l.out.Write(p)
 	return
 }
 
@@ -359,56 +407,66 @@ func (l *logger) Alertf(format string, v ...interface{}) {
 
 func (l *logger) Panic(v ...interface{}) {
 	l.Output(2, printf("", v), LPanic)
-	if !l.dontPanic {
+	if 0 == _dont_panic&l.modes {
 		panic(v)
 	}
 }
 
 func (l *logger) Panicf(format string, v ...interface{}) {
 	l.Output(2, printf(format, v), LPanic)
-	if !l.dontPanic {
+	if 0 == _dont_panic&l.modes {
 		panic(v)
 	}
 }
 
 func (l *logger) Fatal(v ...interface{}) {
 	l.Output(2, printf("", v), LFatal)
-	if !l.dontExit {
+	if 0 == _dont_exit&l.modes {
 		os.Exit(1)
 	}
 }
 
 func (l *logger) Fatalf(format string, v ...interface{}) {
 	l.Output(2, printf(format, v), LFatal)
-	if !l.dontExit {
+	if 0 == _dont_exit&l.modes {
 		os.Exit(1)
 	}
 }
 
+// +dl zh-cn
+/*
+  New 返回 Logger 对象.
+  writer 为 nil 返回 nil.
+  prefix 为自定义前缀, 自定义前缀总会被输出.
+  flags 有效范围包括所有的 flags 常量, 0 特指取消自动生成的前缀.
+*/
+// +dl
+
+/*
+  New returns Logger.
+  if writer is nil, returns nil.
+  flags The valid range includes all flags constants.
+*/
 func New(writer io.Writer, prefix string, flags ...int) Logger {
+	if writer == nil {
+		return nil
+	}
 	ret := new(logger)
 	ret.level = nr_levels
 	hasflags := false
 	for _, flag := range flags {
-		switch flag {
-		case MODE_EQUAL:
-			ret.equal = true
-		case MODE_NONE_NAME:
-			ret.noneName = true
-		case MODE_DONT_EXIT:
-			ret.dontExit = true
-		case MODE_DONT_PANIC:
-			ret.dontPanic = true
-		case MODE_RECOVER:
-			ret.recover = true
-		default:
 
-			if flag >= 0 {
-				hasflags = true
-				ret.flag = ret.flag | flag
-			} else {
-				ret.level = flag
-			}
+		if flag > nr_modes && flag <= MODE_EQUAL {
+			flag = -flag - 100
+			ret.modes = ret.modes | 1<<uint(flag)
+			continue
+		}
+
+		if flag >= 0 {
+			hasflags = true
+			ret.flag = ret.flag | flag
+		} else {
+			ret.level = flag
 		}
 	}
 	// defaults to LstdFlags.

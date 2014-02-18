@@ -16,7 +16,7 @@ Support
  - io.Writer 接口
  - io.ReaderFrom 接口
  - 友好输出格式易于分析
- - Loggers, 设计思路来自 https://github.com/uniqush/log.
+ - Loggers, Multi-Logger 设计思路来自 https://github.com/uniqush/log.
 
 Import
 ======
@@ -35,21 +35,37 @@ import (
 	"github.com/typepress/log"
 )
 
-func main(){
-	w := bytes.NewBuffer([]byte{})
-	m := log.Multi(log.New(w, // io.Writer
-		"prefix", // prefix string
-		0,        // flag, 0 equal log.LZero
-	))
+func main() {
+	w := bytes.NewBuffer(nil)
+	m := log.Multi(
+		log.New(
+			w,        // io.Writer
+			"prefix", // prefix string
+			0,        // flag, 0 means none auto prefix.
+		))
 
-	m.Add(log.New(w,
-		"",
+	l := log.New(w, "",
 		log.LstdFlags|log.Lshortfile,
 		log.Lmicroseconds,
-	))
+	)
+
+	m.Join(l)
 
 	m.Info("info")
 	m.Notify("Notify")
+
+	l.Output(1, "Output")
+
+	l = log.New(w, "ModeEqualReport",
+		0,
+		log.MODE_EQUAL, // equal mode
+		log.LReport,    // set level
+	)
+
+	m.Join(l)
+
+	m.Error("Error")
+	m.Report("Report")
 
 	fmt.Println(w.String())
 }
@@ -58,9 +74,15 @@ func main(){
 output:
 
 	prefix [I] "info"
-	[I] 2014-02-17 23:26:05.780139 <hello.go:22> "info"
+	[I] 2014-02-18 17:30:27.154305 <hello.go:25> "info"
 	prefix [N] "Notify"
-	[N] 2014-02-17 23:26:05.783140 <hello.go:23> "Notify"
+	[N] 2014-02-18 17:30:27.156305 <hello.go:26> "Notify"
+	[Z] 2014-02-18 17:30:27.156305 <hello.go:28> "Output"
+	prefix [E] "Error"
+	[E] 2014-02-18 17:30:27.156305 <hello.go:38> "Error"
+	prefix [R] "Report"
+	[R] 2014-02-18 17:30:27.156305 <hello.go:39> "Report"
+	ModeEqualReport [R] "Report"
 
 License
 =======

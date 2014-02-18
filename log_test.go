@@ -6,8 +6,7 @@ import (
 )
 
 func TestLog(t *testing.T) {
-	var testBytes []byte
-	w := bytes.NewBuffer(testBytes)
+	w := bytes.NewBuffer(nil)
 	l := New(w, "prefix", 0)
 	l.Info("info")
 	check(t, w, `prefix [I] "info"`)
@@ -38,18 +37,18 @@ func TestLog(t *testing.T) {
 
 	l = New(w, "", MODE_NONE_NAME, Lshortfile)
 	l.Info("report")
-	check(t, w, `<log_test.go:40> "report"`)
+	check(t, w, `<log_test.go:39> "report"`)
 	l.Print("Print")
-	check(t, w, `<log_test.go:42> "Print"`)
+	check(t, w, `<log_test.go:41> "Print"`)
 
 	l.Write([]byte("Write\n"))
 	check(t, w, `Write`)
 
 	m := Multi(l)
 	l = New(w, "", 0, MODE_NONE_NAME)
-	m.Add(l)
+	m.Join(l)
 	m.Info("Multi Info")
-	check(t, w, `<log_test.go:51> "Multi Info"`+"\n"+`"Multi Info"`)
+	check(t, w, `<log_test.go:50> "Multi Info"`+"\n"+`"Multi Info"`)
 }
 
 func check(t *testing.T, w *bytes.Buffer, want string) {
