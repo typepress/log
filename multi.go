@@ -68,7 +68,7 @@ func (self *multi) Close() {
 	defer self.mu.RUnlock()
 	for _, l := range self.loggers {
 		if l != nil {
-			l.Close()
+			go l.Close()
 		}
 	}
 }

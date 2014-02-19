@@ -176,8 +176,7 @@ type BaseLogger interface {
 
 type Logger interface {
 	BaseLogger
-	Write([]byte) (int, error)
-	Close()
+	io.WriteCloser
 }
 
 var _ Logger = &logger{}
@@ -326,7 +325,7 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 	return
 }
 
-func (l *logger) Close() {
+func (l *logger) Close() error {
 	l.mu.Lock()
 	defer func() {
 		l.mu.Unlock()
@@ -336,8 +335,9 @@ func (l *logger) Close() {
 	}()
 	c, ok := l.out.(io.Closer)
 	if ok {
-		c.Close()
+		return c.Close()
 	}
+	return nil
 }
 
 func (l *logger) Write(p []byte) (n int, err error) {
