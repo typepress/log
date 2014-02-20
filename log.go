@@ -483,9 +483,9 @@ func New(writer io.Writer, prefix string, flags ...int) Logger {
 	}
 
 	ret.prefix = prefix
-	rw, ok := writer.(RotateWrite)
+	rw, ok := writer.(RotateWriter)
 	if ok {
-		ret.out = Rotate(rw, 1<<28 /*256M*/, 1000000, 60*24*7 /*7days*/)
+		ret.out = Rotate(rw, RotateSets{1 << 28 /*256M*/, 1000000, 60 * 24 * 7 /*7days*/})
 	} else {
 		ret.out = writer
 	}

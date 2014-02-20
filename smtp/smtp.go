@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-const (
-	subjectPhrase = "Diagnostic message from server"
-)
-
 type Sets struct {
 	Identity string
 	Username string

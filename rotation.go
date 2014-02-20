@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-// RotateWrite interface for rotation logger.
-type RotateWrite interface {
+// RotateWriter interface for rotation logger.
+type RotateWriter interface {
 	io.Writer
 	Rotate(begin, now time.Time)
 }
 
 type rotate struct {
-	w               RotateWrite
+	w               RotateWriter
 	msize, mrecodes int
 	minutes         int64
 	size, recodes   int
@@ -66,21 +66,32 @@ func (r *rotate) Write(p []byte) (n int, err error) {
 }
 
 // +dl zh-cn
-// Rotate 包装 RotateWrite 对象, 返回 io.Writer. 当达到分割条件 RotateWrite.Rotate 被调用.
-// 具体分割行为由 RotateWrite 对象自己完成.
+// Rotate 包装 RotateWriter 对象, 返回 io.Writer. 当达到分割条件 RotateWriter.Rotate 被调用.
+// 具体分割行为由 RotateWriter 对象自己完成.
 // +dl
 
-// Rotate wrapper RotateWrite, returns io.Writer. invoke RotateWrite.Rotate method by the time.
-func Rotate(w RotateWrite, size, recodes, minutes int) io.Writer {
+// Rotate wrapper RotateWriter, returns io.Writer. invoke RotateWriter.Rotate method by the time.
+func Rotate(w RotateWriter, sets RotateSets) io.Writer {
 	var s int64
 
 	if w == nil {
 		return nil
 	}
+	size, recodes, minutes := sets.Size, sets.Recodes, sets.Minutes
 	now := time.Now()
 	if minutes != 0 {
 		s = now.Add(time.Duration(int64(minutes) * int64(time.Minute))).Unix()
 	}
 
 	return &rotate{w, size, recodes, int64(minutes), 0, 0, s, now}
+}
+
+// +dl zh-cn
+// RotateSets 把 Rotate 的配置参数包装成 struct,
+// 这样有利于从 toml 配置文件中直接进行 Apply
+// +dl
+
+// RotateSets for Rotate
+type RotateSets struct {
+	Size, Recodes, Minutes int
 }
