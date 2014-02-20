@@ -14,7 +14,7 @@ Support
  - 日志级别
  - 多种输出规则
  - io.WriteCloser 接口
- - 支持日志分割 RotateWrite 接口
+ - 支持日志分割 RotateWriter 接口
  - 友好输出格式易于分析
  - Loggers, Multi-Logger 设计思路来自 https://github.com/uniqush/log.
  - 内建 File, Smtp 实现
