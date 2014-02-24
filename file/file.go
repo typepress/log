@@ -65,7 +65,7 @@ func (f *File) Rotate(begin, now time.Time) {
 		}
 		now.Add(time.Now().Sub(now))
 	}
-	f.fd, _ = os.OpenFile(f.Name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
+	f.fd, _ = os.OpenFile(f.Name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
 	return
 }
 
