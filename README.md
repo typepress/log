@@ -12,6 +12,7 @@ Support
 
  - 并发安全
  - 日志级别
+ - 设定输出级别
  - 多种输出规则
  - io.WriteCloser 接口
  - 支持日志分割 RotateWriter 接口
@@ -79,6 +80,7 @@ output:
 	prefix [N] "Notify"
 	[N] 2014-02-18 17:30:27.156305 <hello.go:26> "Notify"
 	[Z] 2014-02-18 17:30:27.156305 <hello.go:28> "Output"
+	[A] 2014-02-18 17:30:27.156305 <hello.go:31> "SetPrintLevel: LAlert"
 	prefix [E] "Error"
 	[E] 2014-02-18 17:30:27.156305 <hello.go:38> "Error"
 	prefix [R] "Report"

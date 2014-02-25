@@ -153,6 +153,8 @@ type BaseLogger interface {
 	LevelLogger
 	Print(v ...interface{})
 	Printf(format string, v ...interface{})
+	// SetPrintLevel to binding level for Print/Printf
+	SetPrintLevel(level int)
 	// +dl zh-cn
 	/*
 		Output 输出日志符串 s.
@@ -192,6 +194,8 @@ type logger struct {
 
 	level int
 	modes int
+
+	printLevel int //
 }
 
 // Cheap integer to fixed-width decimal ASCII.  Give a negative width to avoid zero-padding.
@@ -283,7 +287,7 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 	if len(optionLevel) != 0 {
 		level = optionLevel[0]
 	}
-	if level == LZero || 0 != _equal&l.modes && level == l.level || 0 == _equal&l.modes && level >= l.level {
+	if level >= LZero || 0 != _equal&l.modes && level == l.level || 0 == _equal&l.modes && level >= l.level {
 
 	} else {
 		return
@@ -309,6 +313,10 @@ func (l *logger) Output(calldepth int, s string, optionLevel ...int) (err error)
 			_ = recover() // ignore panic
 		}
 	}()
+
+	if level > LZero {
+		level = l.printLevel
+	}
 
 	l.buf = l.buf[:0]
 
@@ -353,11 +361,19 @@ func (l *logger) Write(p []byte) (n int, err error) {
 }
 
 func (l *logger) Print(v ...interface{}) {
-	l.Output(2, printf("", v), LZero)
+	l.Output(2, printf("", v), 1)
 }
 
 func (l *logger) Printf(format string, v ...interface{}) {
-	l.Output(2, printf(format, v), LZero)
+	l.Output(2, printf(format, v), 1)
+}
+
+func (l *logger) SetPrintLevel(level int) {
+	if level <= LZero && level > nr_levels {
+		l.mu.Lock()
+		l.printLevel = level
+		l.mu.Unlock()
+	}
 }
 
 func (l *logger) Debug(v ...interface{}) {
