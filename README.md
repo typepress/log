@@ -58,6 +58,9 @@ func main() {
 
 	l.Output(1, "Output")
 
+	l.SetPrintLevel(log.LAlert)
+	l.Print("SetPrintLevel: LAlert")
+
 	l = log.New(w, "ModeEqualReport",
 		0,
 		log.MODE_EQUAL, // equal mode
