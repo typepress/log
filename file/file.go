@@ -45,7 +45,7 @@ func New(name string) (*File, error) {
 	return f, err
 }
 
-var layout = "20060102150405.00000"
+var layout = "20060102150405.000"
 
 type File struct {
 	fd                     *os.File
@@ -63,7 +63,7 @@ func (f *File) Rotate(begin, now time.Time) {
 			f.Name = name
 			break
 		}
-		now.Add(time.Now().Sub(now))
+		now.Add(time.Duration(1e6))
 	}
 	f.fd, _ = os.OpenFile(f.Name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
 	return
