@@ -20,21 +20,22 @@ func TestFile(t *testing.T) {
 	Testfile(t, `_test/access-log`)
 }
 func Testfile(t *testing.T, path string) {
+	wt := want.T(t)
 	f, err := New(path)
-	want.Nil(t, err)
+
+	wt.Nil(err)
 	defer func() {
-		want.Nil(t, f.Close())
-		println(f.Name)
-		want.Nil(t, os.Remove(f.Name))
+		wt.Nil(f.Close())
+		wt.Nil(os.Remove(f.Name))
 	}()
 
-	want.Nil(t, want.Err(
+	wt.Nil(want.LastError(
 		f.Write([]byte("string line\n")),
 	))
 	f.fd.Sync()
 	now := time.Now()
-	println(f.Name)
 	name := f.Name
 	f.Rotate(now, now)
-	want.Nil(t, os.Remove(name))
+	wt.True(f.Name != name, "rotate failed: ", name)
+	wt.Nil(os.Remove(name))
 }
